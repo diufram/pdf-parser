@@ -27,10 +27,8 @@ def upload_pdf():
             indicesCabecera = getCabeceraPos(cabecera)
             finTable = getFin(data["tables"][1])
             textLimpio= data["text"]
-            print(textLimpio)
             items = getDataTable(data["tables"][1],finTable,indicesCabecera)
             nitRuc = getNitRuc(textLimpio)
-            print(nitRuc)
             fecha = getFecha(textLimpio)
             r = {"DocDate": fecha.split(' ')[0],
                 "CardCode": nitRuc,
@@ -54,7 +52,12 @@ def getFecha(text):
     if match:
         return match.group()
     else:
-        print("No se encontró una fecha y hora.")
+        pattern = r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})"
+        match = re.search(pattern, text)
+        if match:
+            return match.group()
+        else:
+            print("No se encontró una fecha y hora.")
 
 def getNitRuc(text):
     pattern = r"\b\d{8}-\d{1}\b"
@@ -96,25 +99,26 @@ def extract_pdf_data(file_path):
 
 def getCabeceraPos(lista):
   indices = []
-  for index, row in enumerate(lista):  
+  for index, row in enumerate(lista):
+      if row is not None: 
         if "Cod" in row:
-            print(index)
+            #print(index)
             indices.append(index)
         if "Cant." in row:
-            print(index)
+            #print(index)
             indices.append(index)
         if "Precio" in row:
-            print(index)
+            #print(index)
             indices.append(index)
         if "Descripcion" in row:
-            print(index)
+            #print(index)
             indices.append(index)
 
         if "Cantidad" in row:
-            print(index)
+            #print(index)
             indices.append(index)
         if "Descripción" in row:
-            print(index)
+            #print(index)
             indices.append(index)
   return indices
 
@@ -125,6 +129,7 @@ def getFin(list):
             return index
 
 def getDataTable(list, fin,indices):
+    print(list)
     data = []
     for index, row in enumerate(list):  
         if index>0 and index <fin:
