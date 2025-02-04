@@ -1,12 +1,16 @@
 from flask import Flask, request, jsonify
 import pdfplumber
 import os
-import re
+import requests
+import shutil
+from get_data_xml import get_data_xml
+from get_data_pdf import get_data_pdf
+
 from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 @app.route('/api/upload-pdf', methods=['POST'])
-def upload_pdf():
+def procesarPDF():
     if 'file' not in request.files:
         return jsonify({"error": "No file part"}), 400
 
@@ -20,125 +24,168 @@ def upload_pdf():
         file.save(file_path)
 
         try:
-            # Extraer texto y tablas del PDF
-            data = extract_pdf_data(file_path)
+            r = get_data_pdf(file_path)
             os.remove(file_path)  # Eliminar archivo temporal
-            cabecera = data["tables"][1][0]
-            indicesCabecera = getCabeceraPos(cabecera)
-            finTable = getFin(data["tables"][1])
-            textLimpio= data["text"]
-            items = getDataTable(data["tables"][1],finTable,indicesCabecera)
-            nitRuc = getNitRuc(textLimpio)
-            fecha = getFecha(textLimpio)
-            r = {"DocDate": fecha.split(' ')[0],
-                "CardCode": nitRuc,
-                "FederalTaxID": nitRuc,
-                "DocumentLines": items
-                }
-            return jsonify(r)
+            return jsonify(r),200
         except Exception as e:
             os.remove(file_path)
             return jsonify({"error": str(e)}), 500
     else:
         return jsonify({"error": "Invalid file format"}), 400
 
+
+@app.route('/api/upload-xml', methods=['POST'])
+def procesarXML():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file part"}), 400
+
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"error": "No selected file"}), 400
+
+    if file and allowed_filexml(file.filename):
+        # Guardar el archivo temporalmente
+        file_path = os.path.join('uploads', file.filename)
+        file.save(file_path)
+
+        try:
+            r = get_data_xml(file_path)
+            os.remove(file_path)  # Eliminar archivo temporal
+            return jsonify(r)
+        except Exception as e:
+            os.remove(file_path)
+            return jsonify({"error": str(e)}), 500
+    else:
+        return jsonify({"error": "Invalid file format"}), 400
 def allowed_file(filename):
     return filename.lower().endswith('.pdf')
 
-def getFecha(text):
-    pattern = r"\b\d{2}-\d{2}-\d{4} \d{2}:\d{2}:\d{2}\b"
-    match = re.search(pattern, text)
+def allowed_filexml(filename):
+    return filename.lower().endswith('.xml')
 
-    if match:
-        return match.group()
-    else:
-        pattern = r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})"
-        match = re.search(pattern, text)
-        if match:
-            return match.group()
-        else:
-            print("No se encontró una fecha y hora.")
+def createInvoicePdf(directorio,cookies_dict):
+                        archivos_pdf = [f for f in os.listdir(directorio) if f.lower().endswith('.pdf')]
+                            # Definir las rutas de las carpetas
+                        directorio_exito = os.path.join(directorio, "exito-pfd")
+                        directorio_errores = os.path.join(directorio, "errores-pfd")
 
-def getNitRuc(text):
-    pattern = r"\b\d{8}-\d{1}\b"
-    match = re.search(pattern, text)
-    if match:
-        return match.group()
-    else:
-        print("No se encontró un RUC.")
+                        # Crear las carpetas si no existen
+                        os.makedirs(directorio_exito, exist_ok=True)
+                        os.makedirs(directorio_errores, exist_ok=True)
+                        # Procesar cada archivo PDF
+                        for archivo in archivos_pdf:
+                            file_path = os.path.join(directorio, archivo)
+                            archivo_destino_exito = os.path.join(directorio_exito, archivo)
+                            archivo_destino_error = os.path.join(directorio_errores, archivo)
 
-def getCodCliente(list):
-    return 1
+                            try:
+                                # Extraer datos del PDF
+                                r = get_data_pdf(file_path)
+                                
+                                resCreateInvoice = requests.post(
+                                    f"https://sap.icorebiz.net/b1s/v2/Drafts",
+                                    json=r,
+                                    cookies=cookies_dict  # Pasar el diccionario de cookies
+                                )
 
-def extract_pdf_data(file_path):
-    data = {
-        "text": "",
-        "tables": []
+                                #print(f"INVOICE {resCreateInvoice.json()}")
+
+                                shutil.move(file_path, archivo_destino_exito)
+                            except Exception as e:
+                                shutil.move(file_path, archivo_destino_error)
+                                print(f"Ocurrio un error al procesar: {e}")
+
+
+def createInvoiceXml(directorio,cookies_dict):
+                        archivos_pdf = [f for f in os.listdir(directorio) if f.lower().endswith('.xml')]
+                            # Definir las rutas de las carpetas
+                        directorio_exito = os.path.join(directorio, "exito-xml")
+                        directorio_errores = os.path.join(directorio, "errores-xml")
+
+                        # Crear las carpetas si no existen
+                        os.makedirs(directorio_exito, exist_ok=True)
+                        os.makedirs(directorio_errores, exist_ok=True)
+                        # Procesar cada archivo PDF
+                        for archivo in archivos_pdf:
+                            file_path = os.path.join(directorio, archivo)
+                            archivo_destino_exito = os.path.join(directorio_exito, archivo)
+                            archivo_destino_error = os.path.join(directorio_errores, archivo)
+
+                            try:
+                                # Extraer datos del PDF
+                                r = get_data_xml(file_path)
+                                
+                                resCreateInvoice = requests.post(
+                                    f"https://sap.icorebiz.net/b1s/v2/Drafts",
+                                    json=r,
+                                    cookies=cookies_dict  # Pasar el diccionario de cookies
+                                )
+
+                                #print(f"INVOICE {resCreateInvoice.json()}")
+
+                                shutil.move(file_path, archivo_destino_exito)
+                            except Exception as e:
+                                shutil.move(file_path, archivo_destino_error)
+                                print(f"Ocurrio un error al procesar: {e}")
+
+@app.route('/api/imp-repository', methods=['POST'])
+def sendInvoices():
+    data = request.get_json()  # Obtener datos del cuerpo de la solicitud
+    username = data['UserName']
+    password = data['Password']
+    companydb = data['CompanyDB']
+    tipo = data['tipo']
+    req = {
+        "CompanyDB": companydb,
+        "UserName": username,
+        "Password": password,
+        "Language": 23,
     }
 
-    with pdfplumber.open(file_path) as pdf:
-        # Extraer texto del PDF
-        text = ""
-        for page in pdf.pages:
-            text += page.extract_text()
+    # Hacer la solicitud POST para iniciar sesión
+    response = requests.post("https://sap.icorebiz.net/b1s/v2/Login", json=req)
 
-        data["text"] = text
+    # Acceder al directorio (suponiendo que 'url' es la clave en el JSON)
+    directorio = data['url']
+    try:
 
-        # Extraer tablas del PDF
-        tables = []
-        page = pdf.pages[0] 
-        for page in pdf.pages:
-            table = page.extract_tables()
-            if table:
-                tables.extend(table)
+        if response.status_code == 200:
+            print("Inicio de sesión exitoso")
+            
+            # Acceder a las cookies de la respuesta
+            cookies = response.cookies
 
-        # Agregar las tablas al resultado
-        data["tables"] = table
-
-    return data
-
-def getCabeceraPos(lista):
-  indices = []
-  for index, row in enumerate(lista):
-      if row is not None: 
-        if "Cod" in row:
-            #print(index)
-            indices.append(index)
-        if "Cant." in row:
-            #print(index)
-            indices.append(index)
-        if "Precio" in row:
-            #print(index)
-            indices.append(index)
-        if "Descripcion" in row:
-            #print(index)
-            indices.append(index)
-
-        if "Cantidad" in row:
-            #print(index)
-            indices.append(index)
-        if "Descripción" in row:
-            #print(index)
-            indices.append(index)
-  return indices
+            # Mostrar todas las cookies
+            print("Cookies recibidas:")
+            cookies_dict = {cookie.name: cookie.value for cookie in cookies}
+            for name, value in cookies_dict.items():
+                print(f"{name} = {value}")
 
 
-def getFin(list):
-    for index, row in enumerate(list):  
-        if "SUBTOTAL:" in row:
-            return index
+            
+            if os.path.exists(directorio):
+                if(tipo == 2): #SOLO PARA PDF
+                        createInvoicePdf(directorio=directorio, cookies_dict= cookies_dict)
+                if(tipo == 1): #SOLO PARA XML
+                      createInvoiceXml(directorio=directorio, cookies_dict= cookies_dict)
+                if(tipo == 0): #SOLO PARA XML
+                      createInvoiceXml(directorio=directorio, cookies_dict= cookies_dict)
+                      createInvoicePdf(directorio=directorio, cookies_dict= cookies_dict)
 
-def getDataTable(list, fin,indices):
-    print(list)
-    data = []
-    for index, row in enumerate(list):  
-        if index>0 and index <fin:
-          data.append({"ItemCode":row[indices[0]],
-                       "ItemDescription":row[indices[1]],
-                       "Quantity":row[indices[2]],
-                       "PriceAfterVAT":row[indices[3]]
-                       })
-    return data
+            else:
+                     raise Exception(f"El directorio no se encuentra:{directorio}")
+
+
+        else:
+            raise Exception("Erorr con las credenciales configuradas")
+
+    except  Exception as e:
+         return jsonify({"error": str(e)}), 400
+ 
+
+    return jsonify({"message": "Facturas procesadas con exito"}), 200
+
+
 
 if __name__ == '__main__':
     app.run(debug=True, port=5001)
