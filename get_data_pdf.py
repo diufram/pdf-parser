@@ -1,5 +1,6 @@
 import re
 import pdfplumber
+from datetime import datetime
 
 def allowed_file(filename):
     return filename.lower().endswith('.pdf')
@@ -103,6 +104,19 @@ def getDataTable(list, fin,indices):
     return data
 
 
+def convertir_fecha(fecha_str):
+    # Definir el formato actual de la fecha
+    formato_original = "%d-%m-%Y %H:%M:%S"
+    # Convertir la cadena de fecha a un objeto datetime
+    fecha_obj = datetime.strptime(fecha_str, formato_original)
+
+    # Definir el formato deseado (yyyy-MM-dd)
+    formato_deseado = "%Y-%m-%d"
+    # Convertir el objeto datetime a una cadena con el formato deseado
+    fecha_formateada = fecha_obj.strftime(formato_deseado)
+
+    return fecha_formateada
+
 
 def get_data_pdf(archivo):
 
@@ -117,10 +131,10 @@ def get_data_pdf(archivo):
         items = getDataTable(data["tables"][1], finTable, indicesCabecera)
         nitRuc = getNitRuc(textLimpio)  # Obtén el Nit o RUC
         fecha = getFecha(textLimpio)  # Extrae la fecha si es necesario
-
+        fechaFormateada = convertir_fecha(fecha_str=fecha)
         # Construir el diccionario con los datos extraídos
         req = {
-            "DocDate": "2025-01-30",  # Puedes modificar la fecha o extraerla del texto
+            "DocDate": fechaFormateada,  # Puedes modificar la fecha o extraerla del texto
             "CardCode": "PL0009",  # Modifica el CardCode según lo que necesites
             "FederalTaxID": nitRuc,
             "U_ORIGEN": "DMS",

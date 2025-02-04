@@ -1,12 +1,11 @@
 from flask import Flask, request, jsonify
-import pdfplumber
 import os
 import requests
 import shutil
 from get_data_xml import get_data_xml
 from get_data_pdf import get_data_pdf
-
 from flask_cors import CORS
+
 app = Flask(__name__)
 CORS(app)
 @app.route('/api/upload-pdf', methods=['POST'])
