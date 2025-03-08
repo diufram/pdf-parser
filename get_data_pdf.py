@@ -134,8 +134,8 @@ def get_data_pdf(archivo):
         fechaFormateada = convertir_fecha(fecha_str=fecha)
         # Construir el diccionario con los datos extraídos
         req = {
-            "DocDate": fechaFormateada,  # Puedes modificar la fecha o extraerla del texto
-            "CardCode": "PL0009",  # Modifica el CardCode según lo que necesites
+            "DocDate": fechaFormateada,  
+            "CardCode": "PL0009",  
             "FederalTaxID": nitRuc,
             "U_ORIGEN": "DMS",
             "DocObjectCode": 18,

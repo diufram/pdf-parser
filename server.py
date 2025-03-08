@@ -144,20 +144,11 @@ def createInvoiceXml(directorio,cookies_dict):
 @app.route('/api/imp-repository', methods=['POST'])
 def sendInvoices():
     data = request.get_json()  # Obtener datos del cuerpo de la solicitud
-    username = data['UserName']
-    password = data['Password']
-    companydb = data['CompanyDB']
     tipo = data['tipo']
-    req = {
-        "CompanyDB": companydb,
-        "UserName": username,
-        "Password": password,
-        "Language": 23,
-    }
 
-    # Hacer la solicitud POST para iniciar sesión
-    response = requests.post("https://sap.icorebiz.net/b1s/v2/Login", json=req)
-
+    b1session_cookie = request.headers.get('B1SESSION')
+    name = b1session_cookie.split('=')[0]
+    value = b1session_cookie.split('=')[1]
     # Acceder al directorio (suponiendo que 'url' es la clave en el JSON)
     directorio = data['url']
     content = {
@@ -169,20 +160,8 @@ def sendInvoices():
 
         if(tipo != -1):
 
-            if response.status_code == 200:
-                print("Inicio de sesión exitoso")
-                
-                # Acceder a las cookies de la respuesta
-                cookies = response.cookies
+                cookies_dict = {name: value}
 
-                # Mostrar todas las cookies
-                print("Cookies recibidas:")
-                cookies_dict = {cookie.name: cookie.value for cookie in cookies}
-                for name, value in cookies_dict.items():
-                    print(f"{name} = {value}")
-
-
-                
                 if os.path.exists(directorio):
                     try:
                         if(tipo == 2): #SOLO PARA PDF
@@ -211,13 +190,6 @@ def sendInvoices():
 
                 else:
                     raise Exception(f"El directorio no se encuentra:{directorio}")
-            else:
-                if response.status_code == 502:
-                    raise Exception("El servidor no response")
-                elif response.status_code == 500:
-                 
-                    raise Exception(response.json())
-
         else:
              raise Exception("Seleccione alguno de los 2 Tipos de archivos para procesar (pdf,xml)")
 
