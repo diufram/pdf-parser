@@ -89,7 +89,10 @@ def createInvoicePdf(directorio,cookies_dict):
                                         cookies=cookies_dict  # Pasar el diccionario de cookies
                                     )
 
-                                    #print(f"INVOICE {resCreateInvoice.json()}")
+                                    if(resCreateInvoice.status_code != 201):
+                                        data = resCreateInvoice.json()
+                                        message = data['error']['message']
+                                        raise Exception(message)
 
                                     shutil.move(file_path, archivo_destino_exito)
                                     errors_or_exito.setdefault("exitos", []).append(f"{archivo} \n")
@@ -97,7 +100,7 @@ def createInvoicePdf(directorio,cookies_dict):
                                 except Exception as e:
                                     shutil.move(file_path, archivo_destino_error)
                                     errors_or_exito.setdefault("errores", []).append(f"{archivo} {e} \n")
-                                    print(f"Ocurrio un error al procesar: {e}")      
+                                    #print(f"Ocurrio un error al procesar: {e}")      
                         else:
                              raise Exception("No hay Archivos Pdf en el directorio para procesar")                       
                         return errors_or_exito
@@ -129,35 +132,36 @@ def createInvoiceXml(directorio,cookies_dict):
                                         cookies=cookies_dict  # Pasar el diccionario de cookies
                                     )
 
-                                    #print(f"INVOICE {resCreateInvoice.json()}")
+                                    if(resCreateInvoice.status_code != 201):
+                                        data = resCreateInvoice.json()
+                                        message = data['error']['message']
+                                        raise Exception(message)
                                     errors_or_exito.setdefault("exitos", []).append(f"{archivo} \n")
                                     shutil.move(file_path, archivo_destino_exito)
                                     
                                 except Exception as e:
                                     shutil.move(file_path, archivo_destino_error)
                                     errors_or_exito.setdefault("errores", []).append(f"{archivo} {e} \n")
-                                    print(f"Ocurrio un error al procesar: {e}")
+                                    #print(f"Ocurrio un error al procesar: {e}")
                         else:                         
                             raise Exception("No hay Archivos Xml en el directorio para procesar")  
                         return errors_or_exito
 
 @app.route('/api/imp-repository', methods=['POST'])
 def sendInvoices():
-    data = request.get_json()  # Obtener datos del cuerpo de la solicitud
+    data = request.get_json() 
     tipo = data['tipo']
-
     b1session_cookie = request.headers.get('B1SESSION')
     name = b1session_cookie.split('=')[0]
     value = b1session_cookie.split('=')[1]
-    # Acceder al directorio (suponiendo que 'url' es la clave en el JSON)
-    directorio = data['url']
+    repository = data['url']
     content = {
          "pdfse":[],
          "xmlse":[]
     }
-  
+    directorio_actual = os.getcwd()
+    directorio = os.path.join(directorio_actual, repository)
     try:
-
         if(tipo != -1):
 
                 cookies_dict = {name: value}
@@ -169,19 +173,19 @@ def sendInvoices():
                         
                         if(tipo == 1): #SOLO PARA XML
                             content =  createInvoiceXml(directorio=directorio, cookies_dict= cookies_dict)
-                        if(tipo == 0): #SOLO PARA AMBOS
+                        if(tipo == 0): #PARA AMBOS
                             try:
                                 xml = createInvoiceXml(directorio=directorio, cookies_dict=cookies_dict)
                                 content.setdefault("xmls", []).append(f"{xml} \n")
                             except Exception as e:
-                                print(e)
+                                #print(e)
                                 content.setdefault("xmlse", []).append(f"{e} \n")
                             
                             try:
                                 pdf = createInvoicePdf(directorio=directorio, cookies_dict=cookies_dict)
                                 content.setdefault("pdfs", []).append(f"{pdf} \n")
                             except Exception as e:
-                                print(e)
+                                #print(e)
                                 content.setdefault("pdfse", []).append(f"{e} \n")
                     except Exception as e:
 
@@ -189,13 +193,12 @@ def sendInvoices():
                 
 
                 else:
-                    raise Exception(f"El directorio no se encuentra:{directorio}")
+                    raise Exception(f"La carpeta del repositorio configurado no existe: {repository}")
         else:
              raise Exception("Seleccione alguno de los 2 Tipos de archivos para procesar (pdf,xml)")
 
     except  Exception as e:
             return jsonify({"error": str(e)}), 400
- 
     return jsonify({"message": "Facturas procesadas", "content": content}), 200
 
 
