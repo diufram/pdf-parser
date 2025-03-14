@@ -151,9 +151,9 @@ def createInvoiceXml(directorio,cookies_dict):
 def sendInvoices():
     data = request.get_json() 
     tipo = data['tipo']
-    b1session_cookie = request.headers.get('B1SESSION')
-    name = b1session_cookie.split('=')[0]
-    value = b1session_cookie.split('=')[1]
+    session = data['session']
+    name = session.split('=')[0]
+    value = session.split('=')[1]
     repository = data['url']
     content = {
          "pdfse":[],
